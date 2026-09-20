@@ -1,30 +1,23 @@
 # CS 457 Project Statement of Work (SOW) & Protocol Specification Template
 
-**Student Name:** [Your Full Name]  
-**Date:** [YYYY-MM-DD]  
-**Course:** CS 457 - Computer Networks  
-**Target Server Domain:** `server.[yourlastname].edu`  
+**Student Name:** Sami Conca
+**Date:** 2026-09-20
+**Course:** CS 457 - Computer Networks and the Internet
+**Target Server Domain:** `server.conca.edu`  
 
 ---
 
 ## 1. Game Selection & Scope (Sprint 0)
 
-> Planning is going to be an iterative process through the sprints so you don't have to have all the details now. Focus on big overview concepts. You will be updating the SOW as we plan.
-> You have a lot of freedom to choose a game. There are a couple caveats.  
-
-> - It must run in the console. The lab nodes won't be able to handle extensive graphics.
-> - It has to be self-contained. You can use a internet-connector to download you code, but because the architecture must run 5 nodes you won't be able to run 
-> - You are encouraged to use python, but I'm not going to make it a strict requirement. The instructor and TA's ability to help with C or Rust, etc will be diminished in other languages.
-
 ### 1.1 Game Overview
-- **Chosen Game:** [e.g., Terminal Trivia, Tic-Tac-Toe, Connect Four, Battleship]
+- **Chosen Game:** Headbands
 - **Player Capacity:** 2 Players (Simulated via 2 CML Client nodes)
-- **Game Summary:** [Briefly describe the gameplay mechanics and rules]
+- **Game Summary:** In Headbands, Player 1 is randomly assigned a thing: this may be an animal, food, item, or other similar one-word object. Player 2 is told what the thing is. Player 1 must then ask yes or no questions to Player 2 to determine what thing they have been assigned. Player 2 may only respond with "yes" or "no" to Player 1's questions. If Player 1 guesses what they have been assigned before the timer runs out, they receive a point. The roles then switch.
 
 ### 1.2 Core Game Rules & Win/Draw Conditions
-- **Turn Mechanics:** [Explain how turn order is enforced between Player 1 and Player 2]
-- **Victory Condition:** [Define how a player wins the game]
-- **Draw/Tie Condition:** [Define how a draw/tie is detected and handled]
+- **Turn Mechanics:** Player 1 and Player 2 are randomly assigned to the clients. Player 1 must guess what thing they have been assigned before the timer runs out. If they guess correctly, they get a point and the turn moves to Player 2. If the timer runs out, they do not receive a point and the turn moves to Player 2. This continues for some set number of rounds, with points tallied over the whole game.
+- **Victory Condition:** A player wins the game by ending with the most number of points. Points are accrued over the entire game and the state is maintained until the end. A point is awarded for guessing the correct answer. No points are awarded for failing to guess the correct answer in the allotted time.
+- **Draw/Tie Condition:** A tie occurs when both players end with the same number of points. In this case, a series of victory matches will begin, during which both players will be asked the same question in the form of "I am ___. What am I?" with the blank being filled with some unique descriptor of the randomly selected object. Each object in the victory rounds will have three unique "I am..." statements over the course of a short timer. If no player is able to guess the object during that time, another object will be selected and the process will repeat. The first player to guess the object correctly will be awarded one point, thus breaking the tie.
 
 ---
 
