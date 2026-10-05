@@ -9,6 +9,7 @@
 8. `DRAW` (Server -> Clients): Begin draw condition round.
 9. `GAME_OVER` (Server -> Clients): Victory notification with final scores.
 10. `ERROR` (Server -> Client): Invalid move or malformed packet error.
+11. `DISCONNECT` (Server -> Client): Sends disconnect message to remaining client.
 
 ### Message Transport & Serialization Format
 - **Transport Protocol:** TCP

@@ -41,6 +41,7 @@
 8. `DRAW` (Server -> Clients): Begin draw condition round.
 9. `GAME_OVER` (Server -> Clients): Victory notification with final scores.
 10. `ERROR` (Server -> Client): Invalid move or malformed packet error.
+11. `DISCONNECT` (Server -> Client): Sends disconnect message to remaining client.
 
 ### Example Newline-Delimited (`n`) Wirestream:
 ```
@@ -75,6 +76,8 @@ flowchart TD
     TURN_RESPONSE -- Win detected --> END
     TURN_RESPONSE -- Correct guess or timer end --> SWITCH_PLAYER_ROLES
     --> TURN_BEGIN
+    TURN_BEGIN -- Client sends invalid question --> TURN_BEGIN
+    TURN_RESPONSE -- Client sends invalid response --> TURN_RESPONSE
     TURN_RESPONSE -- Draw detected --> VICTORY_ROUND
     -- Server asks victory question --> VICTORY_QUESTION
     -- Clients guess victory question answer --> VICTORY_ROUND
@@ -82,6 +85,8 @@ flowchart TD
     VICTORY_QUESTION -- Client breaks draw by guessing correctly --> END
     -- Broadcast final score --> CLEAN_UP
     -- Reset state --> WAITING
+    START -- Client disconnects (gracefully or otherwise) at any point --> DISCONNECT 
+    -- Remaining client notified of disconnect and wins by forfeit --> WAITING 
 ```
 
 ---
