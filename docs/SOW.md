@@ -25,37 +25,64 @@
 
 ### 2.1 Message Transport & Serialization Format
 - **Transport Protocol:** TCP
-- **Serialization Format:** [JSON / Fixed-Header Binary / Delimited Text]
-- **Framing Mechanism:** [e.g., Newline-delimited (`\n`) JSON payloads OR 4-byte big-endian length prefix]
+- **Serialization Format:** JSON
+- **Framing Mechanism:** Newline-delimited (`\n`) JSON payloads
 
 ### 2.2 Message Schema Definitions
 
 #### Message Types:
-1. `CONNECT` (Client -> Server): Request to join the game room.
+1. `CONNECT` (Client -> Server): Request to join game.
 2. `LOBBY_WAIT` (Server -> Client): Notification that server is waiting for Player 2.
-3. `GAME_START` (Server -> Clients): Game initiated, assigns roles (e.g. Player X vs Player O).
-4. `MOVE` (Client -> Server): Player action (e.g., cell coordinates or answer choice).
-5. `STATE_UPDATE` (Server -> Clients): Broadcast current game board / state and active player turn.
-6. `GAME_OVER` (Server -> Clients): Victory / Draw notification with final scores.
-7. `ERROR` (Server -> Client): Invalid move or malformed packet error.
+3. `GAME_START` (Server -> Clients): Game initiated, assigns inital roles via coinflip (e.g. Player 1 is Guesser, Player 2 is Informer)
+4. `ASK` (Client -> Server): Guesser action (i.e. yes or no question).
+5. `INFORM` (Client -> Server): Informer action (i.e. yes or no response).
+6. `GUESS` (CLients -> Server): Draw condition only; clients perform Guesser action in lightning round.
+7. `STATE_UPDATE` (Server -> Clients): Broadcast current point status, time, round, and roles.
+8. `DRAW` (Server -> Clients): Begin draw condition round.
+9. `GAME_OVER` (Server -> Clients): Victory notification with final scores.
+10. `ERROR` (Server -> Client): Invalid move or malformed packet error.
+
+### Example Newline-Delimited (`n`) Wirestream:
+```json
+{"msg_type":"CONNECT","player_id":"Player_1","timestamp":1727000000}\n{"msg_type":"ASK","player_id":"Player_1","payload":{"question":"Am I an object?"},"timestamp":1727000005}\n{"msg_type":"INFORM","player_id":"Player_2","payload":{"answer":"No"},"timestamp":1727000010}\n
+```
 
 #### Example JSON Protocol Schema:
 ```json
 {
-  "msg_type": "MOVE",
+  "msg_type": "ASK",
   "player_id": "Player_1",
   "payload": {
-    "row": 0,
-    "col": 2
+    "question": "Am I an object?"
   },
-  "timestamp": 1727000000
+  "timestamp": 1727000005
 }
 ```
 
 ---
 
 ### 2.3 Game State Machine (FSM) Design (Sprint 1 Deliverable)
-- **State Transitions:** Detail state flow: `INIT` -> `WAITING_FOR_PLAYERS` -> `PLAYER_TURN` -> `EVALUATE_MOVE` -> `CHECK_WIN_DRAW` -> `GAME_OVER` -> `CLEANUP`.
+### Game State Machine (FSM) Design
+```mermaid
+    flowchart TD;
+        A@{ shape: sm-circ, label: "Small start" } --> INIT;
+        -- Started and listening for players --> WAITING;
+        -- Two clients connect --> START;
+        -- Initalize game and assign roles --> TURN_BEGIN;
+        -- Guesser sends yes or no question --> TURN_RESPONSE;
+        -- Informer responds with yes or no --> TURN_BEGIN;
+        TURN_RESPONSE -- Lost packets or state issue (ERROR to Client) --> TURN_BEGIN;
+        TURN_RESPONSE -- Win detected --> END;
+        TURN_RESPONSE -- Correct guess or timer end --> SWITCH_PLAYER_ROLES;
+        --> TURN_BEGIN;
+        TURN_RESPONSE -- Draw detected --> VICTORY_ROUND;
+        -- Server asks victory question --> VICTORY_QUESTION;
+        -- Clients guess victory question answer --> VICTORY_ROUND;
+        VICTORY_QUESTION -- Ask new question after three rounds with no correct guess --> VICTORY_ROUND;
+        VICTORY_QUESTION -- Client breaks draw by guessing correctly --> END;
+        -- Broadcast final score --> CLEAN_UP;
+        -- Reset state --> WAITING;
+```
 
 ---
 
@@ -73,9 +100,9 @@
 
 ## 4. Coding & AI Implementation Plan (Sprint 3)
 
-- **Permitted AI Tools:** [e.g., GitHub Copilot, ChatGPT, Claude]
-- **AI Prompting & Constraint Strategy:** Explain how you will constrain AI models to generate code (in Python or your chosen language) that adheres strictly to the protocol blueprint and FSM designed in Sprints 1 & 2.
-- **Implementation Risk Management:** Detail your plan to leverage past programming experience and manage time to ensure code completion on schedule.
+- **Permitted AI Tools:** GitHub Copilot, ChatGPT, Claude, Gemini, and similar coding harness models and AI assisted code writing and debugging tools.
+- **AI Prompting & Constraint Strategy:** I plan to not rely on a full coding harness such as Google Antigravity or ClaudeCode. GitHub Copilot is the most AI that I plan to implement in this project, and thus AI promting will not be frequent. If other models are used for debugging or code writing, a file with protocol and FSM specifications, as well as a written desciprtion of the specifications and project goal will be provided, with instructions that suggested code outside of those constraints is unacceptable.
+- **Implementation Risk Management:** To ensure code is completed on schedule, particularly because my goal is to handwrite much of it with the assistance of AI (i.e. not using a coding harness), I will work on it in small parts continuously throughout the sprint and keep track of my progress on a Kanban board. I will also utilize prior networking and socket programming experience to maintain the state of my project, as well as structured testing to ensure usability.
 
 ---
 
