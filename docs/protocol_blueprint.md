@@ -12,18 +12,22 @@
 
 ### Message Transport & Serialization Format
 - **Transport Protocol:** TCP
-- **Serialization Format:** [JSON / Fixed-Header Binary / Delimited Text]
-- **Framing Mechanism:** [e.g., Newline-delimited (`\n`) JSON payloads OR 4-byte big-endian length prefix]
+- **Serialization Format:** JSON
+- **Framing Mechanism:** Newline-delimited (`\n`) JSON payloads
+
+### Example Newline-Delimited (`n`) Wirestream:
+```json
+{"msg_type":"CONNECT","player_id":"Player_1","timestamp":1727000000}\n{"msg_type":"ASK","player_id":"Player_1","payload":{"question":"Am I an object?"},"timestamp":1727000005}\n{"msg_type":"INFORM","player_id":"Player_2","payload":{"answer":"No"},"timestamp":1727000010}\n
+```
 
 #### Example JSON Protocol Schema:
 ```json
 {
-  "msg_type": "MOVE",
+  "msg_type": "ASK",
   "player_id": "Player_1",
   "payload": {
-    "row": 0,
-    "col": 2
+    "question": "Am I an object?"
   },
-  "timestamp": 1727000000
+  "timestamp": 1727000005
 }
 ```
