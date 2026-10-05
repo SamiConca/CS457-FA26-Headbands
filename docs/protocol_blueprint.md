@@ -5,10 +5,10 @@
 4. `ASK` (Client -> Server): Guesser action (i.e. yes or no question).
 5. `INFORM` (Client -> Server): Informer action (i.e. yes or no response).
 6. `GUESS` (CLients -> Server): Draw condition only; clients perform Guesser action in lightning round.
-6. `STATE_UPDATE` (Server -> Clients): Broadcast current point status, time, round, and roles.
-7. `DRAW` (Server -> Clients): Begin draw condition round.
-8. `GAME_OVER` (Server -> Clients): Victory notification with final scores.
-9. `ERROR` (Server -> Client): Invalid move or malformed packet error.
+7. `STATE_UPDATE` (Server -> Clients): Broadcast current point status, time, round, and roles.
+8. `DRAW` (Server -> Clients): Begin draw condition round.
+9. `GAME_OVER` (Server -> Clients): Victory notification with final scores.
+10. `ERROR` (Server -> Client): Invalid move or malformed packet error.
 
 ### Message Transport & Serialization Format
 - **Transport Protocol:** TCP
