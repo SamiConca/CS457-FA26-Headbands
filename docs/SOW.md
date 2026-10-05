@@ -41,7 +41,7 @@
 8. `DRAW` (Server -> Clients): Begin draw condition round.
 9. `GAME_OVER` (Server -> Clients): Victory notification with final scores.
 10. `ERROR` (Server -> Client): Invalid move or malformed packet error.
-11. `DISCONNECT` (Server -> Client): Sends disconnect message to remaining client.
+11. `DISCONNECT` (Server -> Client): Sends disconnect message to remaining client; server employs both TCP EOF Rule and exception management to gracefully handle both graceful and forceful disconnections.
 
 ### Example Newline-Delimited (`n`) Wirestream:
 ```
