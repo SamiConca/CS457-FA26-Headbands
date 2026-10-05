@@ -43,7 +43,7 @@
 10. `ERROR` (Server -> Client): Invalid move or malformed packet error.
 
 ### Example Newline-Delimited (`n`) Wirestream:
-```json
+```
 {"msg_type":"CONNECT","player_id":"Player_1","timestamp":1727000000}\n{"msg_type":"ASK","player_id":"Player_1","payload":{"question":"Am I an object?"},"timestamp":1727000005}\n{"msg_type":"INFORM","player_id":"Player_2","payload":{"answer":"No"},"timestamp":1727000010}\n
 ```
 
