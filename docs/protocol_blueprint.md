@@ -1,16 +1,19 @@
+#### Message Types:
+1. `CONNECT` (Client -> Server): Request to join game.
+2. `LOBBY_WAIT` (Server -> Client): Notification that server is waiting for Player 2.
+3. `GAME_START` (Server -> Clients): Game initiated, assigns inital roles via coinflip (e.g. Player 1 is Guesser, Player 2 is Informer)
+4. `ASK` (Client -> Server): Guesser action (i.e. yes or no question).
+5. `INFORM` (Client -> Server): Informer action (i.e. yes or no response).
+6. `GUESS` (CLients -> Server): Draw condition only; clients perform Guesser action in lightning round.
+6. `STATE_UPDATE` (Server -> Clients): Broadcast current point status, time, round, and roles.
+7. `DRAW` (Server -> Clients): Begin draw condition round.
+8. `GAME_OVER` (Server -> Clients): Victory notification with final scores.
+9. `ERROR` (Server -> Client): Invalid move or malformed packet error.
+
 ### Message Transport & Serialization Format
 - **Transport Protocol:** TCP
 - **Serialization Format:** [JSON / Fixed-Header Binary / Delimited Text]
 - **Framing Mechanism:** [e.g., Newline-delimited (`\n`) JSON payloads OR 4-byte big-endian length prefix]
-
-#### Message Types:
-1. `CONNECT` (Client -> Server): Request to join the game room.
-2. `LOBBY_WAIT` (Server -> Client): Notification that server is waiting for Player 2.
-3. `GAME_START` (Server -> Clients): Game initiated, assigns roles (e.g. Player X vs Player O).
-4. `MOVE` (Client -> Server): Player action (e.g., cell coordinates or answer choice).
-5. `STATE_UPDATE` (Server -> Clients): Broadcast current game board / state and active player turn.
-6. `GAME_OVER` (Server -> Clients): Victory / Draw notification with final scores.
-7. `ERROR` (Server -> Client): Invalid move or malformed packet error.
 
 #### Example JSON Protocol Schema:
 ```json
