@@ -1,5 +1,5 @@
 ## Coding & AI Implementation Plan
 
-- **Permitted AI Tools:** [e.g., GitHub Copilot, ChatGPT, Claude]
-- **AI Prompting & Constraint Strategy:** Explain how you will constrain AI models to generate code (in Python or your chosen language) that adheres strictly to the protocol blueprint and FSM designed in Sprints 1 & 2.
-- **Implementation Risk Management:** Detail your plan to leverage past programming experience and manage time to ensure code completion on schedule.
+- **Permitted AI Tools:** GitHub Copilot, ChatGPT, Claude, Gemini, and similar coding harness models and AI assisted code writing and debugging tools.
+- **AI Prompting & Constraint Strategy:** I plan to not rely on a full coding harness such as Google Antigravity or ClaudeCode. GitHub Copilot is the most AI that I plan to implement in this project, and thus AI promting will not be frequent. If other models are used for debugging or code writing, a file with protocol and FSM specifications, as well as a written desciprtion of the specifications and project goal will be provided, with instructions that suggested code outside of those constraints is unacceptable.
+- **Implementation Risk Management:** To ensure code is completed on schedule, particularly because my goal is to handwrite much of it with the assistance of AI (i.e. not using a coding harness), I will work on it in small parts continuously throughout the sprint and keep track of my progress on a Kanban board. I will also 
