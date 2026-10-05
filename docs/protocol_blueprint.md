@@ -15,7 +15,7 @@
 - **Serialization Format:** JSON
 - **Framing Mechanism:** Newline-delimited (`\n`) JSON payloads
 
-### Example Newline-Delimited (`n`) Wirestream:
+### Example Newline-Delimited (`\n`) Wirestream:
 ```json
 {"msg_type":"CONNECT","player_id":"Player_1","timestamp":1727000000}\n{"msg_type":"ASK","player_id":"Player_1","payload":{"question":"Am I an object?"},"timestamp":1727000005}\n{"msg_type":"INFORM","player_id":"Player_2","payload":{"answer":"No"},"timestamp":1727000010}\n
 ```
