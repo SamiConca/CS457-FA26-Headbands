@@ -18,6 +18,27 @@ help_script = """Input format: 'python server.py -p <port num>'
 send_locks = {}
 
 
+def send_json(client_socket, data):
+    message = json.dumps(data).encode("utf-8") + b"\n"
+    with send_locks[client_socket]:
+        client_socket.sendall(message)
+
+
+def receive_json(client_socket):
+    buffer = b""
+
+    while True:
+        data = client_socket.recv(4096)
+        if not data:
+            return
+
+        buffer += data
+        while b"\n" in buffer:
+            line, buffer = buffer.split(b"\n", 1)
+            if line.strip():
+                yield json.loads(line.decode("utf-8"))
+
+
 def play_round(guesser, informer, role):
     send_json(guesser, {"type": "player", "player": "Guesser"})
     send_json(informer, {"type": "player", "player": "Informer"})
