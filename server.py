@@ -6,9 +6,11 @@ Server assigns roles and sends prompts.
 """
 
 import json
+import queue
 import socket
 import sys
 import threading
+import time
 
 help_script = """Input format: 'python server.py -p <port num>'
 
@@ -17,6 +19,8 @@ help_script = """Input format: 'python server.py -p <port num>'
 
 send_locks = {}
 
+ROUND_TIME = 30 # seconds
+
 
 def send_json(client_socket, data):
     message = json.dumps(data).encode("utf-8") + b"\n"
@@ -24,22 +28,39 @@ def send_json(client_socket, data):
         client_socket.sendall(message)
 
 
-def receive_json(client_socket):
+def receive_json(client_socket, inbox):
     buffer = b""
 
-    while True:
-        data = client_socket.recv(4096)
-        if not data:
-            return
+    try:
+        while True:
+            data = client_socket.recv(4096)
+            if not data:
+                return
 
-        buffer += data
-        while b"\n" in buffer:
-            line, buffer = buffer.split(b"\n", 1)
-            if line.strip():
-                yield json.loads(line.decode("utf-8"))
+            buffer += data
+            while b"\n" in buffer:
+                line, buffer = buffer.split(b"\n", 1)
+                if line.strip():
+                    inbox.put(json.loads(line.decode("utf-8")))
+    except (OSError, json.JSONDecodeError):
+        pass
+    finally:
+        inbox.put(None)
+        print(f"[DISCONNECT] Client {client_socket.getpeername()} has disconnected")  
 
 
-def play_round(guesser, informer, role, guesser_score, informer_score):
+def get_message(inbox, deadline):
+    remaining_time = deadline - time.monotonic()
+    if remaining_time <= 0:
+        return None
+
+    try:
+        return inbox.get(timeout = remaining_time)
+    except queue.Empty:
+        None
+
+
+def play_round(guesser, informer, role, guesser_score, informer_score, inboxes):
     send_json(guesser, {"type": "player", "player": "Guesser"})
     send_json(informer, {"type": "player", "player": "Informer"})
     send_json(informer, {"type": "role", "role": role})
@@ -47,56 +68,73 @@ def play_round(guesser, informer, role, guesser_score, informer_score):
 
     current_guesser = guesser
     current_informer = informer
+    deadline = time.monotonic() + ROUND_TIME
 
     while True:
-        # Wait for Guesser's guess
-        try:
-            message = next(receive_json(current_guesser))
-        except (StopIteration, ConnectionError, json.JSONDecodeError):
-            return
+        # Get Guesser's guess
+        message = get_message(inboxes[current_guesser], deadline)
+
+        if message is None:
+            result = "timeout"
+            break
 
         if message.get("type") != "guess":
             continue
 
-        guess = str(message.get("value", "")).strip()
+        guess = str(message.get("guess", "")).strip()
         send_json(current_informer, {"type": "guess", "guess": guess})
 
-        # Wait for Informer's answer
-        try:
-            reply = next(receive_json(current_informer))
-        except (StopIteration, ConnectionError, json.JSONDecodeError):
-            return
+        # Get Informer's answer
+        reply = get_message(inboxes[current_informer], deadline)
 
-        answer = str(reply.get("value", "")).strip().lower()
+        if reply is None:
+            result = "timeout"
+            break
+
+        answer = str(reply.get("answer", "")).strip().lower()
         if reply.get("type") != "answer" or answer not in ("yes", "no"):
-            send_json(current_informer, {"type": "error", "message": "Invalid answer. Please respond with 'yes' or 'no'."})
+            send_json(current_guesser, {"type": "error", "message": "Invalid answer. Please reply with 'yes' or 'no'."})
             continue
 
         send_json(current_guesser, {"type": "answer", "answer": answer.title()})
-        send_json(current_informer, {"type": "answer received"})
 
         if guess.casefold() == role.casefold():
-            send_json(current_guesser, {"type": "round_over", "result": "correct"})
-            guesser_score += 1
-            send_json(current_informer, {"type": "round_over", "result": "correct"})
-            informer_score += 1
-            return (guesser_score, informer_score)
+            result = "correct"
+            break
+
+    for client in (guesser, informer):
+        send_json(client, {"type": "round_over", "role": role, "result": result})
+
+    return result
 
 
 
 def handle_client(clients):
     roles = ["dog", "redwood", "guitar"]
-    guesser_score = 0
-    informer_score = 0
+    inboxes = {client: queue.Queue() for client in clients}
+    scores = {clients[0]: 0, clients[1]: 0}
+    
+    for client in clients:
+        threading.Thread(
+            target = receive_json, 
+            args = (client, inboxes[client]), 
+            daemon = True
+        ).start()
 
     try:
         for round_number, role in enumerate(roles):
             guesser = clients[round_number % 2]
             informer = clients[1 - (round_number % 2)]
-            guesser_score, informer_score = play_round(guesser, informer, role, guesser_score, informer_score)
+            result = play_round(guesser, informer, role, inboxes)
+
+            if result == "correct":
+                scores[guesser] += 1
+
+            for client in clients:
+                send_json(client, {"type": "score_update", "scores": scores[client]})
 
         for client in clients:
-            send_json(client, {"type": "game_over", "scores": (guesser_score, informer_score)})
+            send_json(client, {"type": "game_over", "scores": scores})
     except (OSError, ConnectionError):
         pass
     finally:
