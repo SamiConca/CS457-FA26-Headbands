@@ -20,7 +20,8 @@ def handle_client(client_socket, client_address):
     # TODO: Implement game logic, including role assignment and prompt sending
     client_socket.close()
 
-if __name__ == "__main__":
+
+def start_server():
     if (sys.argv[1] == "-h"):
         print(help_script)
         sys.exit(0)
@@ -36,6 +37,10 @@ if __name__ == "__main__":
     server_socket.listen(2)
     print(f"[LOBBY WAIT] Server listening on 0.0.0.0:{host_port}")
 
+    accept_client_connections(server_socket)
+
+
+def accept_client_connections(server_socket):
     try:
         while True:
             client_socket, client_address = server_socket.accept()
@@ -48,4 +53,8 @@ if __name__ == "__main__":
     finally:
         server_socket.close()
         sys.exit(0)
+
+
+if __name__ == "__main__":
+    start_server()
     
