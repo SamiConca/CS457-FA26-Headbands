@@ -32,6 +32,7 @@ if __name__ == "__main__":
         host_port = int(sys.argv[4])
     else:
         print("Unknown input. Please type 'python client.py -h' for help.")
+        sys.exit(1)
 
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     client_socket.bind((host_ip, host_port))
