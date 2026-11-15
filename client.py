@@ -6,8 +6,10 @@ in a certain time limit.
 Client with most correct guesses wins.
 """
 
+import json
 import socket
 import sys
+import threading
 
 help_script = """Input format: 'python client.py -i <host name> -p <port num>'
 
@@ -15,6 +17,105 @@ help_script = """Input format: 'python client.py -i <host name> -p <port num>'
 
 -p <port num>: number of port client is hosted on (e.g. 8080)
 """
+
+instructions = """Instructions:
+1. The game consists of 5 rounds.
+2. In each round, one player is the Guesser and the other is the Informer.
+3. The Guesser will be assigned a role (e.g. 'dog') and must guess what it is by asking the Informer yes or no questions.
+4. The Informer will know the role and must answer the Guesser's questions truthfully.
+5. The round ends when the Guesser guesses the role correctly or time runs out.
+6. The player with the most correct guesses wins.
+7. In the event of a tie, the game will ask both players to try to guess what role the server has assigned itself.
+
+Commands: 
+- 'guess <role>' or 'guess <number of role>' to make a guess.
+- 'answer <yes/no>' to answer a guess.
+- 'quit' to exit the game.
+"""
+
+
+def send_json(client_socket, data):
+    message = json.dumps(data).encode("utf-8") + b"\n"
+    client_socket.sendall(message)
+
+
+def receive_json(client_socket):
+    buffer = b""
+
+    while True:
+        data = client_socket.recv(4096)
+        if not data:
+            print("[DISCONNECT] Server has disconnected")
+            return
+
+        buffer += data
+        while b"\n" in buffer:
+            line, buffer = buffer.split(b"\n", 1)
+            if not line.strip():
+                continue
+
+            try:
+                message = json.loads(line.decode("utf-8"))
+            except json.JSONDecodeError:
+                print("[ERROR] Received invalid JSON from server")
+                continue
+
+            type = message.get("type")
+
+            if type == "player":
+                print(f"\n[ASSIGNMENT] You are the {message['role']}")
+            elif type == "role":
+                print(f"[ROLE] The Guesser is a {message['role']}")
+            elif type == "guess":
+                print(f"[ASK] The Guesser guessed: {message['guess']}")
+                print("Reply with 'yes' or 'no'.")
+            elif type == "answer":
+                print(f"[INFORM] The Informer replied: {message['answer']}")
+            elif type == "round_over":
+                print(f"[ROUND OVER] The round is over. The Guesser was a {message['role']}, and the result was {message['result']}.")
+            elif type == "game_over":
+                print(f"[GAME OVER] The game is over. The final scores are: {message['scores']}.")
+                return
+            elif type == "error":
+                print(f"[ERROR] {message['message']}")
+
+
+def set_up_clients(server_ip, server_port):
+    client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    print(f"[CONNECT] Attempting to connect to server at {server_ip}:{server_port}...")
+    client_socket.connect((server_ip, server_port))
+    print("[LOBBY JOIN] Successfully joined the lobby")
+
+    threading.Thread(
+        target=receive_json, 
+        args=(client_socket,), 
+        daemon=True
+    ).start()
+
+    print(instructions)
+
+    while True:
+        try:
+            user_input = input("> ").strip()
+        except EOFError:
+            print("\n[ERROR] EOFError, exiting...")
+            break
+
+        if user_input.lower() == "quit":
+            print("[DISCONNECT] Exiting the game...")
+            break
+
+        command, _, value = user_input.partition(" ")
+        command = command.lower()
+        value = value.strip()
+
+        if command == "guess":
+            send_json(client_socket, {"type": "guess", "guess": value})
+        elif command == "answer" and value.lower() in ("yes", "no"):
+            send_json(client_socket, {"type": "answer", "answer": value})
+        else:
+            print("[ERROR] Invalid command. Please use 'guess <role>' if you are Guesser, 'answer <yes/no>' if you are Informer, or 'quit' to exit the game.")
+
 
 def connect_to_server():
     if (sys.argv[1] == "-h"):
@@ -33,10 +134,8 @@ def connect_to_server():
         print("Unknown input. Please type 'python client.py -h' for help.")
         sys.exit(1)
 
-    client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    print(f"[CONNECT] Attempting to connect to server at {server_ip}:{server_port}...")
-    client_socket.connect((server_ip, server_port))
-    print("[LOBBY JOIN] Successfully joined the lobby")
+    set_up_clients(server_ip, server_port)
+
 
 if __name__ == "__main__":
     connect_to_server()
