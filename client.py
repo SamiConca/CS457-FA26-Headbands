@@ -71,8 +71,10 @@ def receive_json(client_socket):
                 print("Reply with 'yes' or 'no'.")
             elif type == "answer":
                 print(f"[INFORM] The Informer replied: {message['answer']}")
+            elif type == "score_update":
+                print(f"[SCORE UPDATE] Your current score is: {message['scores']}")
             elif type == "round_over":
-                print(f"[ROUND OVER] The round is over. The Guesser was a {message['role']}, and the result was {message['result']}.")
+                print(f"[ROUND OVER] The round is over. The Guesser was a {message['role']} and the result was {message['result']}.")
             elif type == "game_over":
                 print(f"[GAME OVER] The game is over. The final scores are: {message['scores']}.")
                 return
