@@ -39,11 +39,11 @@ def receive_json(client_socket):
                 yield json.loads(line.decode("utf-8"))
 
 
-def play_round(guesser, informer, role):
+def play_round(guesser, informer, role, guesser_score, informer_score):
     send_json(guesser, {"type": "player", "player": "Guesser"})
     send_json(informer, {"type": "player", "player": "Informer"})
     send_json(informer, {"type": "role", "role": role})
-    send_json(guesser, {"type": "prompt", "prompt": role})
+    send_json(guesser, {"type": "role", "role": role})
 
     current_guesser = guesser
     current_informer = informer
@@ -77,22 +77,26 @@ def play_round(guesser, informer, role):
 
         if guess.casefold() == role.casefold():
             send_json(current_guesser, {"type": "round_over", "result": "correct"})
+            guesser_score += 1
             send_json(current_informer, {"type": "round_over", "result": "correct"})
-            return
+            informer_score += 1
+            return (guesser_score, informer_score)
 
 
 
 def handle_client(clients):
     roles = ["dog", "redwood", "guitar"]
+    guesser_score = 0
+    informer_score = 0
 
     try:
         for round_number, role in enumerate(roles):
             guesser = clients[round_number % 2]
             informer = clients[1 - (round_number % 2)]
-            play_round(guesser, informer, role)
+            guesser_score, informer_score = play_round(guesser, informer, role, guesser_score, informer_score)
 
         for client in clients:
-            send_json(client, {"type": "game_over"})
+            send_json(client, {"type": "game_over", "scores": (guesser_score, informer_score)})
     except (OSError, ConnectionError):
         pass
     finally:
