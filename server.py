@@ -21,6 +21,136 @@ send_locks = {}
 
 ROUND_TIME = 30 # seconds
 
+ROLES = {
+    "dog": {"type": "animal", "class": "mammal", "size": "medium", "fuzzy": True, "four_legs": True, "live_ocean": False},
+    "whale": {"type": "animal", "class": "mammal", "size": "large", "fuzzy": False, "four_legs": False, "live_ocean": True},
+    "lizard": {"type": "animal", "class": "reptile", "size": "small", "fuzzy": False, "four_legs": True, "live_ocean": True},
+    "redwood": {"type": "plant", "class": "tree", "size": "large", "leaves": True, "cold_climate": False, "rarity": True},
+    "cactus": {"type": "plant", "class": "succulent", "size": "small", "leaves": False, "cold_climate": False, "rarity": False},
+    "beet": {"type": "plant", "class": "crop", "size": "medium", "leaves": False, "cold_climate": True, "rarity": False},
+    "planet": {"type": "object", "class": "space", "size": "large", "made_wood": False, "can_sit": True, "man_made": False},
+    "chair": {"type": "object", "class": "furniture", "size": "medium", "made_wood": True, "can_sit": True, "man_made": True},
+    "computer": {"type": "object", "class": "technology", "size": "small", "made_wood": False, "can_sit": False, "man_made": True},
+}
+
+QUESTIONS = {
+    "animal": {
+        "text": "Am I an animal?",
+        "attribute": "type",
+        "expected": "animal",
+    },
+    "plant": {
+        "text": "Am I a plant?",
+        "attribute": "type",
+        "expected": "plant",
+    },
+    "object": {
+        "text": "Am I an object?",
+        "attribute": "type",
+        "expected": "object",
+    },
+    "mammal": {
+        "text": "Am I a mammal?",
+        "attribute": "class",
+        "expected": "mammal",
+    },
+    "reptile": {
+        "text": "Am I a reptile?",
+        "attribute": "class",
+        "expected": "reptile",
+    },
+    "tree": {
+        "text": "Am I a tree?",
+        "attribute": "class",
+        "expected": "tree",
+    },
+    "succulent": {
+        "text": "Am I a succulent?",
+        "attribute": "class",
+        "expected": "succulent",
+    },
+    "crop": {
+        "text": "Am I a crop?",
+        "attribute": "class",
+        "expected": "crop",
+    },
+    "space": {
+        "text": "Am I in space?",
+        "attribute": "class",
+        "expected": "space",
+    },
+    "furniture": {
+        "text": "Am I furniture?",
+        "attribute": "class",
+        "expected": "furniture",
+    },
+    "technology": {
+        "text": "Am I technology?",
+        "attribute": "class",
+        "expected": "technology",
+    },
+    "small": {
+        "text": "Am I small?",
+        "attribute": "size",
+        "expected": "small",
+    },
+    "medium": {
+        "text": "Am I medium?",
+        "attribute": "size",
+        "expected": "medium",
+    },
+    "medium": {
+        "text": "Am I large?",
+        "attribute": "size",
+        "expected": "large",
+    },
+    "fuzzy": {
+        "text": "Am I fuzzy?",
+        "attribute": "fuzzy",
+        "expected": True,
+    },
+    "leaves": {
+        "text": "Do I have leaves?",
+        "attribute": "leaves",
+        "expected": True,
+    },
+    "made_wood": {
+        "text": "Am I made of wood?",
+        "attribute": "made_wood",
+        "expected": True,
+    },
+    "four_legs": {
+        "text": "Do I have four legs?",
+        "attribute": "four_legs",
+        "expected": True,
+    },
+    "cold_climate": {
+        "text": "Do I live in a cold climate?",
+        "attribute": "cold_climate",
+        "expected": True,
+    },
+    "can_sit": {
+        "text": "Can I be sat on?",
+        "attribute": "can_sit",
+        "expected": True,
+    },
+    "live_ocean": {
+        "text": "Do I live in the ocean?",
+        "attribute": "live_ocean",
+        "expected": True,
+    },
+    "rarity": {
+        "text": "Am I rare?",
+        "attribute": "rarity",
+        "expected": True,
+    },
+    "man_made": {
+        "text": "Am I man-made?",
+        "attribute": "man_made",
+        "expected": True,
+    },
+}
+
 
 def send_json(client_socket, data):
     message = json.dumps(data).encode("utf-8") + b"\n"
@@ -57,60 +187,74 @@ def get_message(inbox, deadline):
     try:
         return inbox.get(timeout = remaining_time)
     except queue.Empty:
-        None
+        return None
 
 
-def play_round(guesser, informer, role, guesser_score, informer_score, inboxes):
+def play_round(guesser, informer, role,inboxes):
     send_json(guesser, {"type": "player", "player": "Guesser"})
     send_json(informer, {"type": "player", "player": "Informer"})
-    send_json(informer, {"type": "role", "role": role})
-    send_json(guesser, {"type": "role", "role": role})
 
-    current_guesser = guesser
-    current_informer = informer
+    send_json(informer, {"type": "role", "role": role})
+
+    send_json(guesser, {
+        "type": "question_options", 
+        "options": [
+            {"id": question_id, "text": question["text"]}
+            for question_id, question in QUESTIONS.items()
+        ],
+    })
+
     deadline = time.monotonic() + ROUND_TIME
 
     while True:
         # Get Guesser's guess
-        message = get_message(inboxes[current_guesser], deadline)
+        message = get_message(inboxes[guesser], deadline)
 
         if message is None:
             result = "timeout"
             break
 
-        if message.get("type") != "guess":
+        if message.get("type") == "guess":
+            guess = str(message.get("guess", "")).strip()
+            if guess.casefold() == role.casefold():
+                result = "correct"
+                break
+
+            send_json(guesser, {"type": "guess_result", "result": "incorrect"})
             continue
 
-        guess = str(message.get("guess", "")).strip()
-        send_json(current_informer, {"type": "guess", "guess": guess})
+        if message.get("type") != "ask":
+            continue
 
-        # Get Informer's answer
-        reply = get_message(inboxes[current_informer], deadline)
+        question_id = message.get("question")
+        question = QUESTIONS.get(question_id)
+        if question is None:
+            send_json(guesser, {"type": "error", "message": "That question is not available.",})
+            continue
 
+        send_json(informer, {"type": "question", "question": question_id, "text": question["text"],})
+
+        reply = get_message(inboxes[informer], deadline)
         if reply is None:
             result = "timeout"
             break
 
         answer = str(reply.get("answer", "")).strip().lower()
         if reply.get("type") != "answer" or answer not in ("yes", "no"):
-            send_json(current_guesser, {"type": "error", "message": "Invalid answer. Please reply with 'yes' or 'no'."})
+            send_json(informer, {"type": "error", "message": "Invalid answer. Please respond with 'yes' or 'no'."})
             continue
 
-        send_json(current_guesser, {"type": "answer", "answer": answer.title()})
-
-        if guess.casefold() == role.casefold():
-            result = "correct"
-            break
+        send_json(guesser, {"type": "answer", "question": question_id, "answer": answer.title()})
 
     for client in (guesser, informer):
-        send_json(client, {"type": "round_over", "role": role, "result": result})
+        send_json(client, {"type": "round_over", "result": result})
 
     return result
 
 
 
 def handle_client(clients):
-    roles = ["dog", "redwood", "guitar"]
+    roles = list(ROLES.keys())
     inboxes = {client: queue.Queue() for client in clients}
     scores = {clients[0]: 0, clients[1]: 0}
     
@@ -134,7 +278,7 @@ def handle_client(clients):
                 send_json(client, {"type": "score_update", "scores": scores[client]})
 
         for client in clients:
-            send_json(client, {"type": "game_over", "scores": scores})
+            send_json(client, {"type": "game_over", "scores": scores[client]})
     except (OSError, ConnectionError):
         pass
     finally:
@@ -152,7 +296,7 @@ def accept_client_connections(server_socket):
             while len(clients) < 2:
                 client_socket, client_address = server_socket.accept()
                 send_locks[client_socket] = threading.Lock()
-                clients.append((client_socket, client_address))
+                clients.append(client_socket)
                 print(f"[LOBBY JOIN] Client {client_address} has joined the lobby")
         
             threading.Thread(
@@ -180,7 +324,7 @@ def start_server():
         sys.exit(1)
 
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server_socket.setsocketopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     server_socket.bind(("0.0.0.0", host_port))
     server_socket.listen()
     print(f"[LOBBY WAIT] Server listening on 0.0.0.0:{host_port}")
