@@ -7,6 +7,7 @@ Server assigns roles and sends prompts.
 
 import json
 import queue
+import random
 import socket
 import sys
 import threading
@@ -247,14 +248,13 @@ def play_round(guesser, informer, role,inboxes):
         send_json(guesser, {"type": "answer", "question": question_id, "answer": answer.title()})
 
     for client in (guesser, informer):
-        send_json(client, {"type": "round_over", "result": result})
+        send_json(client, {"type": "round_over", "role": role, "result": result})
 
     return result
 
 
-
 def handle_client(clients):
-    roles = list(ROLES.keys())
+    roles = random.sample(list(ROLES.keys()), k = 5)
     inboxes = {client: queue.Queue() for client in clients}
     scores = {clients[0]: 0, clients[1]: 0}
     
@@ -275,10 +275,10 @@ def handle_client(clients):
                 scores[guesser] += 1
 
             for client in clients:
-                send_json(client, {"type": "score_update", "scores": scores[client]})
+                send_json(client, {"type": "score_update", "score": scores[client]})
 
         for client in clients:
-            send_json(client, {"type": "game_over", "scores": scores[client]})
+            send_json(client, {"type": "game_over", "score": scores[client]})
     except (OSError, ConnectionError):
         pass
     finally:
