@@ -293,14 +293,28 @@ def handle_client(clients):
                 except OSError:
                     pass
 
+                return
+
             if result == "correct":
                 scores[guesser] += 1
 
             for client in clients:
                 send_json(client, {"type": "score_update", "score": scores[client]})
 
+        score1 = scores[clients[0]]
+        score2 = scores[clients[1]]
+        if score1 > score2:
+            winner = clients[0]
+            outcome = "win"
+        elif score2 > score1:
+            winner = clients[1]
+            outcome = "win"
+        else:
+            winner = None
+            outcome = "tie"
+
         for client in clients:
-            send_json(client, {"type": "game_over", "score": scores[client]})
+            send_json(client, {"type": "game_over", "result": "win" if client == winner else "loss", "score": scores[client], "message": "[WIN] You win!" if client == winner else "[LOSS] You lose.",})
     except (OSError, ConnectionError):
         pass
     finally:
