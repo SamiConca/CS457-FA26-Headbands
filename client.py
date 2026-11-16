@@ -84,7 +84,8 @@ def receive_json(client_socket):
             elif type == "round_over":
                 print(f"[ROUND OVER] The round is over. The Guesser was a {message['role']} and the result was {message['result']}.")
             elif type == "game_over":
-                print(f"[GAME OVER] The game is over. Your final score is: {message['score']}.")
+                print(f"[GAME OVER] {message['message']}.")
+                print(f"[FINAL SCORE] Your score: {message['score']}")
                 return
             elif type == "error":
                 print(f"[ERROR] {message['message']}")
