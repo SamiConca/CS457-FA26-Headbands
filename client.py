@@ -13,9 +13,9 @@ import threading
 
 help_script = """Input format: 'python client.py -i <host name> -p <port num>'
 
--i <host name>: name of host for client (e.g. server.smith.edu)
+-i <host name>: name of host for server (e.g. server.smith.edu)
 
--p <port num>: number of port client is hosted on (e.g. 8080)
+-p <port num>: number of port server is hosted on (e.g. 8080)
 """
 
 instructions = """Instructions:
