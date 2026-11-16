@@ -100,7 +100,7 @@ QUESTIONS = {
         "attribute": "size",
         "expected": "medium",
     },
-    "medium": {
+    "large": {
         "text": "Am I large?",
         "attribute": "size",
         "expected": "large",
@@ -152,6 +152,32 @@ QUESTIONS = {
     },
 }
 
+TIE_BREAKER_CLUES = {
+    ("type", "animal"): "I am an animal.",
+    ("type", "plant"): "I am a plant.",
+    ("type", "object"): "I am an object.",
+    ("class", "mammal"): "I am a mammal.",
+    ("class", "reptile"): "I am a reptile.",
+    ("class", "tree"): "I am a tree.",
+    ("class", "succulent"): "I am a succulent.",
+    ("class", "crop"): "I am a crop.",
+    ("class", "space"): "I am connected to space.",
+    ("class", "furniture"): "I am furniture.",
+    ("class", "technology"): "I am technology.",
+    ("size", "small"): "I am small.",
+    ("size", "medium"): "I am medium.",
+    ("size", "large"): "I am large.",
+    ("fuzzy", True): "I am fuzzy.",
+    ("leaves", True): "I have leaves.",
+    ("made_wood", True): "I am made of wood.",
+    ("four_legs", True): "I have four legs.",
+    ("cold_climate", True): "I live in a cold climate.",
+    ("can_sit", True): "I can be sat on.",
+    ("live_ocean", True): "I live in the ocean.",
+    ("rarity", True): "I am rare.",
+    ("man_made", True): "I am man-made.",
+}
+
 
 def send_json(client_socket, data):
     message = json.dumps(data).encode("utf-8") + b"\n"
@@ -195,6 +221,58 @@ def wait_for_message(inbox, deadline, disconnects):
             continue
 
     return None, None
+
+
+def play_tiebreaker(clients, inboxes, disconnects):
+    role = random.choice(list(ROLES.keys()))
+
+    facts = [
+        (attribute, value)
+        for attribute, value in ROLES[role].items()
+        if value is True or attribute in ("type", "class", "size")
+    ]
+
+    clues = [
+        TIE_BREAKER_CLUES[fact]
+        for fact in facts
+        if fact in TIE_BREAKER_CLUES
+    ]
+
+    if len(clues) < 3:
+        raise ValueError(f"[ERROR] Not enough clue text for role {role!r}")
+
+    clues = random.sample(clues, 3)
+
+    while True:
+        for client in clients:
+            send_json(client, {"type": "tiebreaker", "seconds": 60, "clues": clues,})
+
+        deadline = time.monotonic() + 60
+
+        while time.monotonic() < deadline:
+            try:
+                disconnected = disconnects.get_nowait()
+                winner = clients[1] if disconnected == clients[0] else clients[0]
+                return winner, "opponent_disconnected"
+            except queue.Empty:
+                pass
+
+            for client in clients:
+                try:
+                    message = inboxes[client].get_nowait()
+                except queue.Empty:
+                    continue
+
+                if message is None:
+                    winner = clients[1] if client == clients[0] else clients[0]
+                    return winner, "opponent_disconnected"
+
+                if message.get("type") == "guess":
+                    guess = str(message.get("guess", "")).strip()
+                    if guess.casefold() == role.casefold():
+                        return client, "correct"
+
+            time.sleep(0.05)
 
 
 def play_round(guesser, informer, role, inboxes, disconnects):
@@ -305,13 +383,10 @@ def handle_client(clients):
         score2 = scores[clients[1]]
         if score1 > score2:
             winner = clients[0]
-            outcome = "win"
         elif score2 > score1:
             winner = clients[1]
-            outcome = "win"
         else:
-            winner = None
-            outcome = "tie"
+            winner, reason = play_tiebreaker(clients, inboxes, disconnects)
 
         for client in clients:
             send_json(client, {"type": "game_over", "result": "win" if client == winner else "loss", "score": scores[client], "message": "[WIN] You win!" if client == winner else "[LOSS] You lose.",})
