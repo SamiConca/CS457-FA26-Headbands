@@ -159,7 +159,7 @@ def send_json(client_socket, data):
         client_socket.sendall(message)
 
 
-def receive_json(client_socket, inbox):
+def receive_json(client_socket, inbox, disconnects):
     buffer = b""
 
     try:
@@ -176,22 +176,28 @@ def receive_json(client_socket, inbox):
     except (OSError, json.JSONDecodeError):
         pass
     finally:
-        inbox.put(None)
-        print(f"[DISCONNECT] Client {client_socket.getpeername()} has disconnected")  
+        disconnects.put(client_socket)
+        print("[DISCONNECT] Client disconnected")
 
 
-def get_message(inbox, deadline):
-    remaining_time = deadline - time.monotonic()
-    if remaining_time <= 0:
-        return None
+def wait_for_message(inbox, deadline, disconnects):
+    while time.monotonic() < deadline:
+        try:
+            disconnected_client = disconnects.get_nowait()
+            return None, disconnected_client
+        except queue.Empty:
+            pass
 
-    try:
-        return inbox.get(timeout = remaining_time)
-    except queue.Empty:
-        return None
+        remaining_time = deadline - time.monotonic()
+        try:
+            return inbox.get(timeout = min(remaining_time, 0.2)), None
+        except queue.Empty:
+            continue
+
+    return None, None
 
 
-def play_round(guesser, informer, role,inboxes):
+def play_round(guesser, informer, role, inboxes, disconnects):
     send_json(guesser, {"type": "player", "player": "Guesser"})
     send_json(informer, {"type": "player", "player": "Informer"})
 
@@ -209,7 +215,10 @@ def play_round(guesser, informer, role,inboxes):
 
     while True:
         # Get Guesser's guess
-        message = get_message(inboxes[guesser], deadline)
+        message, disconnected_client = wait_for_message(inboxes[guesser], deadline, disconnects)
+
+        if disconnected_client:
+            return "disconnected", disconnected_client
 
         if message is None:
             result = "timeout"
@@ -235,7 +244,11 @@ def play_round(guesser, informer, role,inboxes):
 
         send_json(informer, {"type": "question", "question": question_id, "text": question["text"],})
 
-        reply = get_message(inboxes[informer], deadline)
+        reply, disconnected_client = wait_for_message(inboxes[informer], deadline, disconnects)
+
+        if disconnected_client:
+            return "disconnected", disconnected_client
+
         if reply is None:
             result = "timeout"
             break
@@ -250,18 +263,19 @@ def play_round(guesser, informer, role,inboxes):
     for client in (guesser, informer):
         send_json(client, {"type": "round_over", "role": role, "result": result})
 
-    return result
+    return result, None
 
 
 def handle_client(clients):
     roles = random.sample(list(ROLES.keys()), k = 5)
     inboxes = {client: queue.Queue() for client in clients}
+    disconnects = queue.Queue()
     scores = {clients[0]: 0, clients[1]: 0}
     
     for client in clients:
         threading.Thread(
             target = receive_json, 
-            args = (client, inboxes[client]), 
+            args = (client, inboxes[client], disconnects), 
             daemon = True
         ).start()
 
@@ -269,7 +283,17 @@ def handle_client(clients):
         for round_number, role in enumerate(roles):
             guesser = clients[round_number % 2]
             informer = clients[1 - (round_number % 2)]
-            result = play_round(guesser, informer, role, inboxes)
+            result, disconnected_client = play_round(guesser, informer, role, inboxes, disconnects)
+
+            if result == "disconnected":
+                winner = clients[1] if disconnected_client == clients[0] else clients[0]
+
+                try:
+                    send_json(winner, {"type": "game_over", "result": "opponent_disconnected", "message": "[DISCONNECT] Your opponent disconnected. You win!",})
+                except OSError:
+                    pass
+
+                return
 
             if result == "correct":
                 scores[guesser] += 1
@@ -277,8 +301,20 @@ def handle_client(clients):
             for client in clients:
                 send_json(client, {"type": "score_update", "score": scores[client]})
 
+        score1 = scores[clients[0]]
+        score2 = scores[clients[1]]
+        if score1 > score2:
+            winner = clients[0]
+            outcome = "win"
+        elif score2 > score1:
+            winner = clients[1]
+            outcome = "win"
+        else:
+            winner = None
+            outcome = "tie"
+
         for client in clients:
-            send_json(client, {"type": "game_over", "score": scores[client]})
+            send_json(client, {"type": "game_over", "result": "win" if client == winner else "loss", "score": scores[client], "message": "[WIN] You win!" if client == winner else "[LOSS] You lose.",})
     except (OSError, ConnectionError):
         pass
     finally:
