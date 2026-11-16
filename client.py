@@ -83,6 +83,12 @@ def receive_json(client_socket):
                 print(f"[SCORE UPDATE] Your current score is: {message['score']}")
             elif type == "round_over":
                 print(f"[ROUND OVER] The round is over. The Guesser was a {message['role']} and the result was {message['result']}.")
+            elif type == "tiebreaker":
+                print(f"\n[DRAW] Guess the server's role.")
+                print("Clues:")
+                for clue in message["clues"]:
+                    print(f" - {clue}")
+                print("You have 60 seconds; if neither player guesses correctly, the server picks another role.")
             elif type == "game_over":
                 print(f"[GAME OVER] {message['message']}.")
                 print(f"[FINAL SCORE] Your score: {message['score']}")
