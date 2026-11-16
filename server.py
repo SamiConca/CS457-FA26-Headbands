@@ -20,7 +20,7 @@ help_script = """Input format: 'python server.py -p <port num>'
 
 send_locks = {}
 
-ROUND_TIME = 30 # seconds
+ROUND_TIME = 60 # seconds
 
 ROLES = {
     "dog": {"type": "animal", "class": "mammal", "size": "medium", "fuzzy": True, "four_legs": True, "live_ocean": False},
