@@ -28,7 +28,8 @@ instructions = """Instructions:
 7. In the event of a tie, the game will ask both players to try to guess what role the server has assigned itself.
 
 Commands: 
-- 'guess <role>' or 'guess <number of role>' to make a guess.
+- 'ask <question-id>' to make a guess.
+- 'guess <role>' to guess your role.
 - 'answer <yes/no>' to answer a guess.
 - 'quit' to exit the game.
 """
@@ -63,20 +64,27 @@ def receive_json(client_socket):
             type = message.get("type")
 
             if type == "player":
-                print(f"\n[ASSIGNMENT] You are the {message['role']}")
+                print(f"\n[ASSIGNMENT] You are the {message['player']}")
             elif type == "role":
                 print(f"[ROLE] The Guesser is a {message['role']}")
-            elif type == "guess":
-                print(f"[ASK] The Guesser guessed: {message['guess']}")
-                print("Reply with 'yes' or 'no'.")
+            elif type == "question_options":
+                print("\n[QUESTIONS] Choose a question to ask:")
+                for option in message["options"]:
+                    print(f" {option['id']}: {option['text']}")
+                print("Type: 'ask <question-id>'")
+            elif type == "question":
+                print(f"\n[ASK] The Guesser asks: {message['text']}")
+                print("Reply with: 'answer yes' or 'answer no'")
             elif type == "answer":
                 print(f"[INFORM] The Informer replied: {message['answer']}")
+            elif type == "guess_result":
+                print(f"[GUESS] {message['result']}")
             elif type == "score_update":
-                print(f"[SCORE UPDATE] Your current score is: {message['scores']}")
+                print(f"[SCORE UPDATE] Your current score is: {message['score']}")
             elif type == "round_over":
                 print(f"[ROUND OVER] The round is over. The Guesser was a {message['role']} and the result was {message['result']}.")
             elif type == "game_over":
-                print(f"[GAME OVER] The game is over. The final scores are: {message['scores']}.")
+                print(f"[GAME OVER] The game is over. Your final score is: {message['score']}.")
                 return
             elif type == "error":
                 print(f"[ERROR] {message['message']}")
@@ -111,12 +119,14 @@ def set_up_clients(server_ip, server_port):
         command = command.lower()
         value = value.strip()
 
-        if command == "guess":
-            send_json(client_socket, {"type": "guess", "guess": value})
+        if command == "ask" and value:
+            send_json(client_socket, {"type": "ask", "question": value,})
+        elif command == "guess" and value:
+            send_json(client_socket, {"type": "guess", "guess": value,})
         elif command == "answer" and value.lower() in ("yes", "no"):
-            send_json(client_socket, {"type": "answer", "answer": value})
+            send_json(client_socket, {"type": "answer", "answer": value.lower(),})
         else:
-            print("[ERROR] Invalid command. Please use 'guess <role>' if you are Guesser, 'answer <yes/no>' if you are Informer, or 'quit' to exit the game.")
+            print("[ERROR] Invalid command. Please use 'ask <question-id> or 'guess <role>' if you are Guesser, 'answer <yes/no>' if you are Informer, or 'quit' to exit the game.")
 
 
 def connect_to_server():
