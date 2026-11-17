@@ -49,6 +49,7 @@ def receive_json(client_socket):
     buffer = b""
 
     while True:
+        # Obtain and process NDJSON data
         data = client_socket.recv(4096)
         if not data:
             print("[DISCONNECT] Server has disconnected")
@@ -66,6 +67,7 @@ def receive_json(client_socket):
                 print("[ERROR] Received invalid JSON from server")
                 continue
 
+            # Determine correct response to parsed message
             type = message.get("type")
 
             if type == "player":
@@ -124,6 +126,7 @@ def set_up_clients(server_ip, server_port):
     print(instructions)
 
     while True:
+        # Try to get user input from clients
         try:
             user_input = input("> ").strip()
         except EOFError:
@@ -134,6 +137,7 @@ def set_up_clients(server_ip, server_port):
             print("[DISCONNECT] Exiting the game...")
             break
 
+        # Parse user input; valid types are guess, ask, and answer
         command, _, value = user_input.partition(" ")
         command = command.lower()
         value = value.strip()
