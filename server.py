@@ -539,6 +539,9 @@ def start_server():
 
     if (sys.argv[1] == "-p"):
         host_port = int(sys.argv[2])
+        if not (host_port > 1023 and host_port < 65536):
+            print(f"[ERROR] Port not in range 1024-65535.")
+            sys.exit(1)
     else:
         print("Unknown input. Please type 'python server.py -h' for help.")
         sys.exit(1)

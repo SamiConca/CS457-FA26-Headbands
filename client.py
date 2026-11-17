@@ -174,6 +174,9 @@ def connect_to_server():
                   "DNS configuration or spelling")
             sys.exit(1)
         server_port = int(sys.argv[4])
+        if not (server_port > 1023 and server_port < 65536):
+            print(f"[ERROR] Port not in range 1024-65535.")
+            sys.exit(1)
     else:
         print("Unknown input. Please type 'python client.py -h' for help.")
         sys.exit(1)
