@@ -275,6 +275,7 @@ def play_tiebreaker(clients, inboxes, disconnects):
     """Play tiebreaker round where 
     clients guess server role from three clues.
     """
+    # Choose random role and pick three random clues
     role = random.choice(list(ROLES.keys()))
 
     facts = [
@@ -295,6 +296,7 @@ def play_tiebreaker(clients, inboxes, disconnects):
     clues = random.sample(clues, 3)
 
     while True:
+        # Allow both clients to send guess simultaneously
         for client in clients:
             send_json(client,
                       {"type": "tiebreaker",
@@ -327,6 +329,7 @@ def play_tiebreaker(clients, inboxes, disconnects):
                     if guess.casefold() == role.casefold():
                         return client
 
+            # Run another round after 60 seconds and brief sleep
             time.sleep(0.05)
 
 
@@ -335,9 +338,11 @@ def play_round(guesser, informer, role, inboxes, disconnects):
 
     Assign roles to players, keep time, determine correctness.
     """
+    # Assign player roles
     send_json(guesser, {"type": "player", "player": "Guesser"})
     send_json(informer, {"type": "player", "player": "Informer"})
 
+    # Assign Guesser hidden role
     send_json(informer, {"type": "role", "role": role})
 
     send_json(guesser, {
@@ -372,6 +377,7 @@ def play_round(guesser, informer, role, inboxes, disconnects):
             send_json(guesser, {"type": "guess_result", "result": "incorrect"})
             continue
 
+        # Show Informer Guesser's guess, get Informer's answer
         if message.get("type") != "ask":
             continue
 
@@ -449,6 +455,7 @@ def handle_client(clients):
                                                      inboxes,
                                                      disconnects)
 
+            # Handle win conditions and scoring
             if result == "disconnected":
                 winner = (clients[1] if disconnected_client == clients[0]
                           else clients[0])
@@ -471,6 +478,7 @@ def handle_client(clients):
                           {"type": "score_update",
                            "score": scores[client]})
 
+        # Determine winner or run tiebreaking round
         score1 = scores[clients[0]]
         score2 = scores[clients[1]]
         if score1 > score2:
