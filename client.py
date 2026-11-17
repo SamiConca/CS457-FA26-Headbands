@@ -1,4 +1,4 @@
-""" Client in the game 'Headbands'.
+"""Client in the game 'Headbands'.
 
 Clients take turns guessing what they are,
 in a certain time limit.
@@ -21,13 +21,16 @@ help_script = """Input format: 'python client.py -i <host name> -p <port num>'
 instructions = """Instructions:
 1. The game consists of 5 rounds.
 2. In each round, one player is the Guesser and the other is the Informer.
-3. The Guesser will be assigned a role (e.g. 'dog') and must guess what it is by asking the Informer yes or no questions.
-4. The Informer will know the role and must answer the Guesser's questions truthfully.
+3. The Guesser will be assigned a role (e.g. 'dog')
+and must guess what it is by asking the Informer yes or no questions.
+4. The Informer will know the role
+and must answer the Guesser's questions truthfully.
 5. The round ends when the Guesser guesses the role correctly or time runs out.
 6. The player with the most correct guesses wins.
-7. In the event of a tie, the game will ask both players to try to guess what role the server has assigned itself.
+7. In the event of a tie, the game will ask both players to
+try to guess what role the server has assigned itself.
 
-Commands: 
+Commands:
 - 'ask <question-id>' to make a guess.
 - 'guess <role>' to guess your role.
 - 'answer <yes/no>' to answer a guess.
@@ -36,11 +39,13 @@ Commands:
 
 
 def send_json(client_socket, data):
+    """Send NDJSON message to server."""
     message = json.dumps(data).encode("utf-8") + b"\n"
     client_socket.sendall(message)
 
 
 def receive_json(client_socket):
+    """Parse NDJSON message from server and inform client appropriately."""
     buffer = b""
 
     while True:
@@ -80,15 +85,20 @@ def receive_json(client_socket):
             elif type == "guess_result":
                 print(f"[GUESS] {message['result']}")
             elif type == "score_update":
-                print(f"[SCORE UPDATE] Your current score is: {message['score']}")
+                print(f"[SCORE UPDATE] Your current score "
+                      f"is: {message['score']}")
             elif type == "round_over":
-                print(f"[ROUND OVER] The round is over. The Guesser was a {message['role']} and the result was {message['result']}.")
+                print(f"[ROUND OVER] The round is over. "
+                      f"The Guesser was a {message['role']} "
+                      f"and the result was {message['result']}.")
             elif type == "tiebreaker":
-                print(f"\n[DRAW] Guess the server's role.")
+                print("\n[DRAW] Guess the server's role.")
                 print("Clues:")
                 for clue in message["clues"]:
                     print(f" - {clue}")
-                print("You have 60 seconds; if neither player guesses correctly, the server picks another role.")
+                print("You have 60 seconds; "
+                      "if neither player guesses correctly, "
+                      "the server picks another role.")
             elif type == "game_over":
                 print(f"[GAME OVER] {message['message']}.")
                 print(f"[FINAL SCORE] Your score: {message['score']}")
@@ -98,14 +108,16 @@ def receive_json(client_socket):
 
 
 def set_up_clients(server_ip, server_port):
+    """Establish client threads and basic behavior."""
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    print(f"[CONNECT] Attempting to connect to server at {server_ip}:{server_port}...")
+    print(f"[CONNECT] Attempting to connect"
+          f"to server at {server_ip}:{server_port}...")
     client_socket.connect((server_ip, server_port))
     print("[LOBBY JOIN] Successfully joined the lobby")
 
     threading.Thread(
-        target=receive_json, 
-        args=(client_socket,), 
+        target=receive_json,
+        args=(client_socket,),
         daemon=True
     ).start()
 
@@ -127,16 +139,24 @@ def set_up_clients(server_ip, server_port):
         value = value.strip()
 
         if command == "ask" and value:
-            send_json(client_socket, {"type": "ask", "question": value,})
+            send_json(client_socket,
+                      {"type": "ask", "question": value, })
         elif command == "guess" and value:
-            send_json(client_socket, {"type": "guess", "guess": value,})
+            send_json(client_socket,
+                      {"type": "guess", "guess": value, })
         elif command == "answer" and value.lower() in ("yes", "no"):
-            send_json(client_socket, {"type": "answer", "answer": value.lower(),})
+            send_json(client_socket,
+                      {"type": "answer", "answer": value.lower(), })
         else:
-            print("[ERROR] Invalid command. Please use 'ask <question-id> or 'guess <role>' if you are Guesser, 'answer <yes/no>' if you are Informer, or 'quit' to exit the game.")
+            print("[ERROR] Invalid command. "
+                  "Please use 'ask <question-id> or "
+                  "'guess <role>' if you are Guesser, "
+                  "'answer <yes/no>' if you are Informer, "
+                  "or 'quit' to exit the game.")
 
 
 def connect_to_server():
+    """Print instructions, connect to server."""
     if (sys.argv[1] == "-h"):
         print(help_script)
         sys.exit(0)
@@ -144,9 +164,10 @@ def connect_to_server():
     if (sys.argv[1] == "-i" and sys.argv[3] == "-p"):
         try:
             server_ip = socket.gethostbyname(sys.argv[2])
-        except socket.gaierror as e:
+        except socket.gaierror:
             print(f"[ERROR] Unable to resolve DNS hostname '{sys.argv[2]}'.")
-            print("Please check your CISCO router DNS configuration or spelling")
+            print("Please check your CISCO router "
+                  "DNS configuration or spelling")
             sys.exit(1)
         server_port = int(sys.argv[4])
     else:
