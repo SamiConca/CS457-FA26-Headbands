@@ -1,4 +1,4 @@
-""" Server in the game 'Headbands'.
+"""Server in the game 'Headbands'.
 
 Server waits for two clients.
 
@@ -20,18 +20,63 @@ help_script = """Input format: 'python server.py -p <port num>'
 
 send_locks = {}
 
-ROUND_TIME = 60 # seconds
+ROUND_TIME = 60  # seconds
 
 ROLES = {
-    "dog": {"type": "animal", "class": "mammal", "size": "medium", "fuzzy": True, "four_legs": True, "live_ocean": False},
-    "whale": {"type": "animal", "class": "mammal", "size": "large", "fuzzy": False, "four_legs": False, "live_ocean": True},
-    "lizard": {"type": "animal", "class": "reptile", "size": "small", "fuzzy": False, "four_legs": True, "live_ocean": True},
-    "redwood": {"type": "plant", "class": "tree", "size": "large", "leaves": True, "cold_climate": False, "rarity": True},
-    "cactus": {"type": "plant", "class": "succulent", "size": "small", "leaves": False, "cold_climate": False, "rarity": False},
-    "beet": {"type": "plant", "class": "crop", "size": "medium", "leaves": False, "cold_climate": True, "rarity": False},
-    "planet": {"type": "object", "class": "space", "size": "large", "made_wood": False, "can_sit": True, "man_made": False},
-    "chair": {"type": "object", "class": "furniture", "size": "medium", "made_wood": True, "can_sit": True, "man_made": True},
-    "computer": {"type": "object", "class": "technology", "size": "small", "made_wood": False, "can_sit": False, "man_made": True},
+    "dog": {"type": "animal",
+            "class": "mammal",
+            "size": "medium",
+            "fuzzy": True,
+            "four_legs": True,
+            "live_ocean": False},
+    "whale": {"type": "animal",
+              "class": "mammal",
+              "size": "large",
+              "fuzzy": False,
+              "four_legs": False,
+              "live_ocean": True},
+    "lizard": {"type": "animal",
+               "class": "reptile",
+               "size": "small",
+               "fuzzy": False,
+               "four_legs": True,
+               "live_ocean": True},
+    "redwood": {"type": "plant",
+                "class": "tree",
+                "size": "large",
+                "leaves": True,
+                "cold_climate": False,
+                "rarity": True},
+    "cactus": {"type": "plant",
+               "class": "succulent",
+               "size": "small",
+               "leaves": False,
+               "cold_climate": False,
+               "rarity": False},
+    "beet": {"type": "plant",
+             "class": "crop",
+             "size": "medium",
+             "leaves": False,
+             "cold_climate": True,
+             "rarity": False},
+    "planet": {"type": "object",
+               "class": "space",
+               "size": "large",
+               "made_wood": False,
+               "can_sit": True,
+               "man_made": False},
+    "chair": {"type": "object",
+              "class": "furniture",
+              "size": "medium",
+              "made_wood": True,
+              "can_sit": True,
+              "man_made": True},
+    "computer": {"type": "object",
+                 "class": "technology",
+                 "size": "small",
+                 "made_wood": False,
+                 "can_sit": False,
+                 "man_made": True},
 }
 
 QUESTIONS = {
@@ -180,12 +225,14 @@ TIE_BREAKER_CLUES = {
 
 
 def send_json(client_socket, data):
+    """Send NDJSON data to client with locking for multithreads."""
     message = json.dumps(data).encode("utf-8") + b"\n"
     with send_locks[client_socket]:
         client_socket.sendall(message)
 
 
 def receive_json(client_socket, inbox, disconnects):
+    """Parse NDJSON from client and monitor disconnections."""
     buffer = b""
 
     try:
@@ -207,6 +254,7 @@ def receive_json(client_socket, inbox, disconnects):
 
 
 def wait_for_message(inbox, deadline, disconnects):
+    """Wait for message from client during round, track disconnections."""
     while time.monotonic() < deadline:
         try:
             disconnected_client = disconnects.get_nowait()
@@ -216,7 +264,7 @@ def wait_for_message(inbox, deadline, disconnects):
 
         remaining_time = deadline - time.monotonic()
         try:
-            return inbox.get(timeout = min(remaining_time, 0.2)), None
+            return inbox.get(timeout=min(remaining_time, 0.2)), None
         except queue.Empty:
             continue
 
@@ -224,6 +272,10 @@ def wait_for_message(inbox, deadline, disconnects):
 
 
 def play_tiebreaker(clients, inboxes, disconnects):
+    """Play tiebreaker round where 
+    clients guess server role from three clues.
+    """
+    # Choose random role and pick three random clues
     role = random.choice(list(ROLES.keys()))
 
     facts = [
@@ -244,16 +296,21 @@ def play_tiebreaker(clients, inboxes, disconnects):
     clues = random.sample(clues, 3)
 
     while True:
+        # Allow both clients to send guess simultaneously
         for client in clients:
-            send_json(client, {"type": "tiebreaker", "seconds": 60, "clues": clues,})
+            send_json(client,
+                      {"type": "tiebreaker",
+                       "seconds": 60,
+                       "clues": clues, })
 
         deadline = time.monotonic() + 60
 
         while time.monotonic() < deadline:
             try:
                 disconnected = disconnects.get_nowait()
-                winner = clients[1] if disconnected == clients[0] else clients[0]
-                return winner, "opponent_disconnected"
+                winner = (clients[1] if disconnected == clients[0] 
+                          else clients[0])
+                return winner
             except queue.Empty:
                 pass
 
@@ -265,24 +322,31 @@ def play_tiebreaker(clients, inboxes, disconnects):
 
                 if message is None:
                     winner = clients[1] if client == clients[0] else clients[0]
-                    return winner, "opponent_disconnected"
+                    return winner
 
                 if message.get("type") == "guess":
                     guess = str(message.get("guess", "")).strip()
                     if guess.casefold() == role.casefold():
-                        return client, "correct"
+                        return client
 
+            # Run another round after 60 seconds and brief sleep
             time.sleep(0.05)
 
 
 def play_round(guesser, informer, role, inboxes, disconnects):
+    """Play round.
+
+    Assign roles to players, keep time, determine correctness.
+    """
+    # Assign player roles
     send_json(guesser, {"type": "player", "player": "Guesser"})
     send_json(informer, {"type": "player", "player": "Informer"})
 
+    # Assign Guesser hidden role
     send_json(informer, {"type": "role", "role": role})
 
     send_json(guesser, {
-        "type": "question_options", 
+        "type": "question_options",
         "options": [
             {"id": question_id, "text": question["text"]}
             for question_id, question in QUESTIONS.items()
@@ -293,7 +357,9 @@ def play_round(guesser, informer, role, inboxes, disconnects):
 
     while True:
         # Get Guesser's guess
-        message, disconnected_client = wait_for_message(inboxes[guesser], deadline, disconnects)
+        message, disconnected_client = wait_for_message(inboxes[guesser],
+                                                        deadline,
+                                                        disconnects)
 
         if disconnected_client:
             return "disconnected", disconnected_client
@@ -311,18 +377,26 @@ def play_round(guesser, informer, role, inboxes, disconnects):
             send_json(guesser, {"type": "guess_result", "result": "incorrect"})
             continue
 
+        # Show Informer Guesser's guess, get Informer's answer
         if message.get("type") != "ask":
             continue
 
         question_id = message.get("question")
         question = QUESTIONS.get(question_id)
         if question is None:
-            send_json(guesser, {"type": "error", "message": "That question is not available.",})
+            send_json(guesser,
+                      {"type": "error",
+                       "message": "That question is not available.", })
             continue
 
-        send_json(informer, {"type": "question", "question": question_id, "text": question["text"],})
+        send_json(informer,
+                  {"type": "question",
+                   "question": question_id,
+                   "text": question["text"], })
 
-        reply, disconnected_client = wait_for_message(inboxes[informer], deadline, disconnects)
+        reply, disconnected_client = wait_for_message(inboxes[informer],
+                                                      deadline,
+                                                      disconnects)
 
         if disconnected_client:
             return "disconnected", disconnected_client
@@ -333,41 +407,64 @@ def play_round(guesser, informer, role, inboxes, disconnects):
 
         answer = str(reply.get("answer", "")).strip().lower()
         if reply.get("type") != "answer" or answer not in ("yes", "no"):
-            send_json(informer, {"type": "error", "message": "Invalid answer. Please respond with 'yes' or 'no'."})
+            send_json(informer,
+                      {"type": "error",
+                       "message": "Type 'answer yes/no'"})
             continue
 
-        send_json(guesser, {"type": "answer", "question": question_id, "answer": answer.title()})
+        send_json(guesser,
+                  {"type": "answer",
+                   "question": question_id,
+                   "answer": answer.title()})
 
     for client in (guesser, informer):
-        send_json(client, {"type": "round_over", "role": role, "result": result})
+        send_json(client,
+                  {"type": "round_over",
+                   "role": role,
+                   "result": result})
 
     return result, None
 
 
 def handle_client(clients):
-    roles = random.sample(list(ROLES.keys()), k = 5)
+    """Handle client connections.
+
+    Track score, track disconnects,
+    track active messages, select
+    roles for 5 rounds.
+    """
+    roles = random.sample(list(ROLES.keys()), k=5)
     inboxes = {client: queue.Queue() for client in clients}
     disconnects = queue.Queue()
     scores = {clients[0]: 0, clients[1]: 0}
-    
+
     for client in clients:
         threading.Thread(
-            target = receive_json, 
-            args = (client, inboxes[client], disconnects), 
-            daemon = True
+            target=receive_json,
+            args=(client, inboxes[client], disconnects),
+            daemon=True
         ).start()
 
     try:
         for round_number, role in enumerate(roles):
             guesser = clients[round_number % 2]
             informer = clients[1 - (round_number % 2)]
-            result, disconnected_client = play_round(guesser, informer, role, inboxes, disconnects)
+            result, disconnected_client = play_round(guesser,
+                                                     informer,
+                                                     role,
+                                                     inboxes,
+                                                     disconnects)
 
+            # Handle win conditions and scoring
             if result == "disconnected":
-                winner = clients[1] if disconnected_client == clients[0] else clients[0]
+                winner = (clients[1] if disconnected_client == clients[0]
+                          else clients[0])
 
                 try:
-                    send_json(winner, {"type": "game_over", "result": "opponent_disconnected", "message": "[DISCONNECT] Your opponent disconnected. You win!",})
+                    send_json(winner,
+                              {"type": "game_over",
+                               "result": "opponent_disconnected",
+                               "message": "You win!", })
                 except OSError:
                     pass
 
@@ -377,8 +474,11 @@ def handle_client(clients):
                 scores[guesser] += 1
 
             for client in clients:
-                send_json(client, {"type": "score_update", "score": scores[client]})
+                send_json(client,
+                          {"type": "score_update",
+                           "score": scores[client]})
 
+        # Determine winner or run tiebreaking round
         score1 = scores[clients[0]]
         score2 = scores[clients[1]]
         if score1 > score2:
@@ -386,10 +486,16 @@ def handle_client(clients):
         elif score2 > score1:
             winner = clients[1]
         else:
-            winner, reason = play_tiebreaker(clients, inboxes, disconnects)
+            winner = play_tiebreaker(clients, inboxes, disconnects)
 
         for client in clients:
-            send_json(client, {"type": "game_over", "result": "win" if client == winner else "loss", "score": scores[client], "message": "[WIN] You win!" if client == winner else "[LOSS] You lose.",})
+            send_json(client,
+                      {"type": "game_over",
+                       "result": "win" if client == winner else "loss",
+                       "score": scores[client],
+                       "message": ("You win!"
+                                   if client == winner
+                                   else "You lose"), })
     except (OSError, ConnectionError):
         pass
     finally:
@@ -401,6 +507,7 @@ def handle_client(clients):
 
 
 def accept_client_connections(server_socket):
+    """Set up client connects and threads."""
     while True:
         clients = []
         try:
@@ -408,12 +515,13 @@ def accept_client_connections(server_socket):
                 client_socket, client_address = server_socket.accept()
                 send_locks[client_socket] = threading.Lock()
                 clients.append(client_socket)
-                print(f"[LOBBY JOIN] Client {client_address} has joined the lobby")
-        
+                print(f"[LOBBY JOIN] Client {client_address}"
+                      f"has joined the lobby")
+
             threading.Thread(
-                target = handle_client, 
-                args = (clients,), 
-                daemon = True
+                target=handle_client,
+                args=(clients,),
+                daemon=True
             ).start()
         except (OSError, KeyboardInterrupt):
             for client in clients:
@@ -424,6 +532,7 @@ def accept_client_connections(server_socket):
 
 
 def start_server():
+    """Print instructions, bind server, call client conenctions."""
     if (sys.argv[1] == "-h"):
         print(help_script)
         sys.exit(0)
@@ -445,4 +554,3 @@ def start_server():
 
 if __name__ == "__main__":
     start_server()
-    
